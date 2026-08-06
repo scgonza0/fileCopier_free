@@ -1,0 +1,33 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# ── Build / PyInstaller ─────────────────────────────────
+build/
+dist/
+*.spec
+public_repo/
+
+# ── Build script outputs ───────────────────────────────
+build_output/
+
+# ── Datos locales del usuario (nunca se suben) ──────────
+filters_config.json
+app_config.json
+fileCopier_log.txt
+
+# ── Claves de licencia (¡CRÍTICO! nunca subir) ──────────
+licensing_keys/
+*.pem
+*.key
+
+# ── IDE / editor ────────────────────────────────────────
+.vs/
+.vscode/
+.idea/
+.opencode/
+.pytest_cache/
