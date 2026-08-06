@@ -108,11 +108,7 @@ class ActivationDialog(QDialog):
             except Exception:
                 other = None
             if other is not None:
-                QMessageBox.critical(
-                    self, T("Valid license, but for another device"),
-                    T("The license signature is valid, but it is bound to\nanother device.\n\nLicenses are per device (USD 10 each). If you need to move it to\nthis machine, send your PC code ({code}) to {email}.",
-                      code=machine_display(), email=CONTACT_EMAIL)
-                )
+                self._show_reactivation(key, other)
                 return
             QMessageBox.critical(
                 self, T("Invalid license"),
@@ -141,6 +137,67 @@ class ActivationDialog(QDialog):
     @staticmethod
     def _contact_email() -> str:
         return CONTACT_EMAIL
+
+
+def _show_reactivation(self, key: str, data: dict):
+    """Diálogo de re-activación: licencia válida pero atada a otra PC."""
+    from PySide6.QtWidgets import QHBoxLayout, QLineEdit
+    machine_now = machine_display()
+    dlg = QDialog(self)
+    dlg.setWindowTitle(T("Re-activation needed"))
+    dlg.setMinimumWidth(480)
+    lay = QVBoxLayout(dlg)
+    lay.addWidget(QLabel(T(
+        "This license belongs to another PC.\n"
+        "If you changed hardware or reinstalled Windows,\n"
+        "you can request a free re-activation.")))
+    row = QHBoxLayout()
+    row.addWidget(QLabel(T("New PC code") + ":"))
+    le = QLineEdit(machine_now)
+    le.setReadOnly(True)
+    le.setToolTip(T("Your new PC code (for this machine)"))
+    row.addWidget(le, 1)
+    copy_btn = QPushButton(T("Copy"))
+    copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(machine_now))
+    row.addWidget(copy_btn)
+    lay.addLayout(row)
+    btn_row = QHBoxLayout()
+    btn_row.addStretch()
+    mail_btn = QPushButton(T("Prepare re-activation email"))
+    mail_btn.clicked.connect(lambda: self._compose_reactivation(
+        key, machine_now, data.get("email", ""), dlg))
+    btn_row.addWidget(mail_btn)
+    close_btn = QPushButton(T("Close"))
+    close_btn.clicked.connect(dlg.accept)
+    btn_row.addWidget(close_btn)
+    lay.addLayout(btn_row)
+    dlg.exec()
+
+    def _compose_reactivation(self, key: str, new_pc: str, buyer_email: str, parent=None):
+        """Arma y abre un email de re-activación + copia datos al portapapeles."""
+        import urllib.parse
+        import webbrowser
+        licencia_info = (f"Original buyer email: {buyer_email}"
+                         if buyer_email else "Original buyer: (unknown)")
+        body = (
+            f"Hello, I need to re-activate my FileCopier Pro license.\n\n"
+            f"{licencia_info}\n"
+            f"New PC code (this machine): {new_pc}\n\n"
+            f"Please send me the updated license key. Thank you!"
+        )
+        subject = urllib.parse.quote("[FileCopier] Re-activation request")
+        body_enc = urllib.parse.quote(body)
+        mailto = f"mailto:{CONTACT_EMAIL}?subject={subject}&body={body_enc}"
+        full_text = (f"To: {CONTACT_EMAIL}\n"
+                     f"Subject: [FileCopier] Re-activation request\n\n{body}")
+        QApplication.clipboard().setText(full_text)
+        try:
+            webbrowser.open(mailto)
+        except Exception:
+            pass
+        QMessageBox.information(parent or self, T("Email ready"), T(
+            "The email is ready. Send it from your mail client and you'll "
+            "receive the updated license key shortly."))
 
 
 def show_activation(parent=None) -> bool:

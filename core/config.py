@@ -68,13 +68,19 @@ def _pro_supported() -> bool:
 
 
 def _machine_match(data: dict) -> bool:
-    """True si la licencia está atada a esta PC (o no lleva binding)."""
+    """True si la licencia está atada a esta PC (o no lleva binding).
+    Prueba el formato actual (con SMBIOS) y el legacy (sin SMBIOS) para
+    mantener compatibilidad con claves ya emitidas antes de esta mejora."""
     expected = data.get("machine", "")
     if not expected:
         return True  # licencia legacy sin binding: sigue válida
     try:
-        from core.machine import machine_id
-        return expected == machine_id()
+        from core.machine import machine_id, machine_id_legacy
+        if expected == machine_id():
+            return True
+        if expected == machine_id_legacy():
+            return True
+        return False
     except Exception:
         return True  # si no se puede calcular la huella, no bloqueamos
 
