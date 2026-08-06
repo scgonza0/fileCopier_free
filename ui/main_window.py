@@ -53,6 +53,7 @@ class MainWindow(QMainWindow):
                                           if T("Source:")=="Origen:" else "E:\\folder1\\folder2\\source folder")
         src_row.addWidget(self.src_input)
         self.btn_src = QPushButton(T("Browse"))
+        self.btn_src.setToolTip(T("Browse source tooltip"))
         self.btn_src.clicked.connect(self._browse_source)
         src_row.addWidget(self.btn_src)
         path_layout.addLayout(src_row)
@@ -63,6 +64,7 @@ class MainWindow(QMainWindow):
         self.dst_input.setPlaceholderText("X:\\CarpetaA\\carpeta_de_destino" if T("Source:")=="Origen:" else "X:\\FolderA\\destination folder")
         dst_row.addWidget(self.dst_input)
         self.btn_dst = QPushButton(T("Browse"))
+        self.btn_dst.setToolTip(T("Browse dest tooltip"))
         self.btn_dst.clicked.connect(self._browse_dest)
         dst_row.addWidget(self.btn_dst)
         path_layout.addLayout(dst_row)
@@ -75,15 +77,18 @@ class MainWindow(QMainWindow):
 
         filter_layout.addWidget(QLabel(T("Show only (extensions):")))
         self.filter_show = QLineEdit()
+        self.filter_show.setToolTip(T("Show only tooltip"))
         self.filter_show.setPlaceholderText(".txt,.py,.pdf")
         filter_layout.addWidget(self.filter_show)
 
         filter_layout.addWidget(QLabel(T("Hide (keywords):")))
         self.filter_hide = QLineEdit()
+        self.filter_hide.setToolTip(T("Hide tooltip"))
         self.filter_hide.setPlaceholderText("__pycache__,temp,.git")
         filter_layout.addWidget(self.filter_hide)
 
         self.btn_apply_filters = QPushButton(T("Apply filters"))
+        self.btn_apply_filters.setToolTip(T("Apply filters tooltip"))
         self.btn_apply_filters.clicked.connect(self._apply_filters)
         filter_layout.addWidget(self.btn_apply_filters)
 
@@ -119,30 +124,36 @@ class MainWindow(QMainWindow):
         action_layout.addStretch()
 
         self.btn_scan = QPushButton(T("Load tree"))
+        self.btn_scan.setToolTip(T("Load tree tooltip"))
         self.btn_scan.clicked.connect(self._load_tree)
         action_layout.addWidget(self.btn_scan)
 
         self.btn_summary = QPushButton(T("View summary"))
+        self.btn_summary.setToolTip(T("View summary tooltip"))
         self.btn_summary.clicked.connect(self._show_summary)
         self.btn_summary.setEnabled(False)
         action_layout.addWidget(self.btn_summary)
 
         self.btn_adv_filters = QPushButton(T("Advanced filters"))
+        self.btn_adv_filters.setToolTip(T("Advanced filters tooltip"))
         self.btn_adv_filters.clicked.connect(self._open_adv_filters)
         self.btn_adv_filters.setEnabled(False)
         action_layout.addWidget(self.btn_adv_filters)
 
         self.btn_copy = QPushButton(T("Copy selected files"))
+        self.btn_copy.setToolTip(T("Copy tooltip"))
         self.btn_copy.clicked.connect(self._start_copy)
         self.btn_copy.setEnabled(False)
         action_layout.addWidget(self.btn_copy)
 
         self.btn_multi = QPushButton(T("Copy to multiple destinations"))
+        self.btn_multi.setToolTip(T("Copy multi tooltip"))
         self.btn_multi.clicked.connect(self._start_multi_copy)
         self.btn_multi.setEnabled(False)
         action_layout.addWidget(self.btn_multi)
 
         self.btn_log = QPushButton(T("View log"))
+        self.btn_log.setToolTip(T("View log tooltip"))
         self.btn_log.clicked.connect(self._open_log)
         action_layout.addWidget(self.btn_log)
 
