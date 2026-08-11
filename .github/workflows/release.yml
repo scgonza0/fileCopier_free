@@ -52,13 +52,20 @@ jobs:
             libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0
 
       - name: Build with PyInstaller
+        shell: bash
         run: |
+          # Separador --add-data segun plataforma (; Windows, : macOS/Linux)
+          if [ "${{ matrix.target }}" = "windows" ]; then
+            SEP=";"
+          else
+            SEP=":"
+          fi
           python -m PyInstaller --onefile --windowed \
             --name "FileCopier_${{ matrix.target }}" \
             --icon ${{ matrix.icon }} \
-            --add-data "ui;ui" \
-            --add-data "core;core" \
-            --add-data "docs;docs" \
+            --add-data "ui${SEP}ui" \
+            --add-data "core${SEP}core" \
+            --add-data "docs${SEP}docs" \
             --hidden-import core.filter_engine \
             --hidden-import core.scanner \
             --hidden-import core.copier \
