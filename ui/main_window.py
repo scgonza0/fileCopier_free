@@ -2,6 +2,7 @@ import time
 from pathlib import Path
 from typing import Optional, List
 
+from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QFileDialog,
@@ -34,6 +35,11 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle(T("FileCopier - Selective Copy"))
         self.setMinimumSize(900, 650)
+        # Icono de ventana (barra de titulo / taskbar cuando corre)
+        from pathlib import Path
+        icon_path = Path(__file__).resolve().parent.parent / "assets" / "filecopier.ico"
+        if icon_path.exists():
+            self.setWindowIcon(QIcon(str(icon_path)))
 
         self.source_path: Optional[Path] = None
         self.dest_path: Optional[Path] = None
