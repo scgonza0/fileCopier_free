@@ -1,0 +1,120 @@
+name: Build + Release multiplataforma
+
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+            icon: assets/filecopier.ico
+            is_tar: false
+          - os: macos-latest
+            target: macos
+            icon: assets/filecopier.icns
+            is_tar: true
+          - os: ubuntu-latest
+            target: linux
+            icon: assets/filecopier_256.png
+            is_tar: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: macOS - generate .icns
+        if: matrix.target == 'macos'
+        run: iconutil -c icns assets/filecopier.iconset -o assets/filecopier.icns
+
+      - name: Linux - install Qt libs
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            libegl1 libgl1-mesa-glx libxkbcommon0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+            libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0
+
+      - name: Build with PyInstaller
+        run: |
+          python -m PyInstaller --onefile --windowed \
+            --name "FileCopier_${{ matrix.target }}" \
+            --icon ${{ matrix.icon }} \
+            --add-data "ui;ui" \
+            --add-data "core;core" \
+            --add-data "docs;docs" \
+            --hidden-import core.filter_engine \
+            --hidden-import core.scanner \
+            --hidden-import core.copier \
+            --hidden-import core.models \
+            --hidden-import core.config \
+            --hidden-import core.version \
+            --hidden-import core.updates \
+            --hidden-import core.logger \
+            --hidden-import core.machine \
+            --hidden-import core.i18n \
+            --hidden-import ui.main_window \
+            --hidden-import ui.tree_widget \
+            --hidden-import ui.filter_dialog \
+            --hidden-import ui.preview_dialog \
+            --hidden-import ui.progress_dialog \
+            --hidden-import ui.conflict_dialog \
+            --hidden-import ui.summary_dialog \
+            --hidden-import ui.copy_options_dialog \
+            --hidden-import ui.multi_dest_dialog \
+            --hidden-import ui.log_viewer \
+            --hidden-import ui.activation_dialog \
+            main.py
+
+      - name: Package (tarball)
+        if: matrix.is_tar
+        run: |
+          cd dist
+          if [ "${{ matrix.target }}" = "macos" ]; then
+            tar -czf "FileCopier_macos.tar.gz" "FileCopier_macos.app"
+          else
+            tar -czf "FileCopier_linux.tar.gz" "FileCopier_linux"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.target }}
+          path: |
+            dist/FileCopier_${{ matrix.target }}${{ matrix.target == 'windows' && '.exe' || '' }}
+            ${{ matrix.is_tar && format('dist/FileCopier_{0}.tar.gz', matrix.target) || '' }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*
+          draft: false
+          generate_release_notes: true
