@@ -13,17 +13,19 @@ _SCAN_CACHE_TTL = 60  # seconds
 
 
 def _stat(path) -> tuple:
-    """os.stat robusto: reintenta con prefijo de ruta larga (\\\\?\\) en Windows."""
+    """os.stat robusto. En Windows reintenta con prefijo de ruta larga (\\\\?\\)
+    para paths > 260 chars; en macOS/Linux el prefijo no existe y se omite."""
     try:
         st = os.stat(path)
         return st.st_size, datetime.fromtimestamp(st.st_mtime)
     except OSError:
-        try:
-            if os.name == "nt" and not str(path).startswith("\\\\?\\"):
+        # Solo Windows: prefijo \\?\ para rutas largas
+        if os.name == "nt" and not str(path).startswith("\\\\?\\"):
+            try:
                 st = os.stat("\\\\?\\" + str(Path(path).resolve()))
                 return st.st_size, datetime.fromtimestamp(st.st_mtime)
-        except OSError:
-            pass
+            except OSError:
+                pass
         return 0, datetime.min
 
 
@@ -208,7 +210,10 @@ def scan_full(
 
             for name in dirnames:
                 full = os.path.join(dirpath, name)
-                rel = os.path.relpath(full, str_root).replace("\\", "/")
+                # Normalizar a / el separador para relative_path (multiplataforma)
+                rel = os.path.relpath(full, str_root)
+                if os.sep != "/":
+                    rel = rel.replace(os.sep, "/")
                 size, modified = _stat(full)
                 entries.append(FileInfo(
                     path=Path(full),
@@ -225,7 +230,9 @@ def scan_full(
 
             for name in filenames:
                 full = os.path.join(dirpath, name)
-                rel = os.path.relpath(full, str_root).replace("\\", "/")
+                rel = os.path.relpath(full, str_root)
+                if os.sep != "/":
+                    rel = rel.replace(os.sep, "/")
                 ext = os.path.splitext(name)[1].lower()
                 size, modified = _stat(full)
                 entries.append(FileInfo(

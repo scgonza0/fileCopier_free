@@ -632,6 +632,41 @@ def test_smbios_sensor_present():
     check(sensors[-1].startswith("P:"), f"último sensor es fallback P:, got '{sensors[-1]}'")
 
 
+def test_relative_path_cross_platform():
+    """relative_path debe usar / (forward slash) en cualquier plataforma,
+    independientemente del separador nativo del OS."""
+    import os
+    from pathlib import Path
+    from core.models import FileInfo
+    # Simular como scanner.py construye relative_path
+    root = Path("/fake/root") if os.sep == "/" else Path("C:\\fake\\root")
+    full = root / "subdir" / "archivo.txt"
+    rel = os.path.relpath(str(full), str(root))
+    if os.sep != "/":
+        rel = rel.replace(os.sep, "/")
+    # En todas las plataformas el relative_path debe llevar /
+    check("/" in rel or rel.count("\\") == 0,
+          f"relative_path usa /: got '{rel}'")
+    check("archivo.txt" in rel, f"relative_path contiene archivo: got '{rel}'")
+
+
+def test_config_dir_cross_platform():
+    """config_dir() debe devolver un path valido segun la plataforma."""
+    import os
+    from core.config import config_dir
+    d = config_dir()
+    check(d.name == "FileCopier", f"config_dir nombre FileCopier, got '{d.name}'")
+    if os.name == "nt":
+        check("AppData" in str(d) or "appdata" in str(d.lower()),
+              f"Windows: config en APPDATA, got '{d}'")
+    elif os.sys.platform.startswith("darwin"):
+        check("Application Support" in str(d),
+              f"macOS: config en Application Support, got '{d}'")
+    else:
+        check(".config" in str(d) or "xdg" in str(d.lower()),
+              f"Linux: config en .config/XDG, got '{d}'")
+
+
 def test_cross_platform_sensor_branching():
     """_sensors() debe ramificar por plataforma (Windows/macOS/Linux)."""
     import core.machine as m
@@ -682,6 +717,8 @@ if __name__ == "__main__":
         ("smbios_sensor_present", test_smbios_sensor_present),
         ("cross_platform_sensor_branching", test_cross_platform_sensor_branching),
         ("machine_id_cross_platform_stable", test_machine_id_cross_platform_stable),
+        ("relative_path_cross_platform", test_relative_path_cross_platform),
+        ("config_dir_cross_platform", test_config_dir_cross_platform),
     ]
 
     gui_tests = [

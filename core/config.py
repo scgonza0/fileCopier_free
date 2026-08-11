@@ -7,11 +7,21 @@ APP_NAME = "FileCopier"
 
 
 def config_dir() -> Path:
-    """Directorio de configuración del usuario: %APPDATA%\\FileCopier
-    (fallback: ~/.config/FileCopier en sistemas sin APPDATA)."""
+    """Directorio de configuración del usuario, segun plataforma:
+    - Windows: %APPDATA%\\FileCopier
+    - macOS:   ~/Library/Application Support/FileCopier
+    - Linux:   ${XDG_CONFIG_HOME:-~/.config}/FileCopier  (XDG compliant)"""
+    # Windows
     base = os.environ.get("APPDATA")
     if base:
         return Path(base) / APP_NAME
+    # macOS
+    if sys.platform.startswith("darwin"):
+        return Path.home() / "Library" / "Application Support" / APP_NAME
+    # Linux/Unix (XDG Base Directory)
+    xdg = os.environ.get("XDG_CONFIG_HOME")
+    if xdg:
+        return Path(xdg) / APP_NAME
     return Path.home() / ".config" / APP_NAME
 
 
