@@ -14,13 +14,17 @@ Sólo se expone el *hash*: no se filtran datos crudos (ni MAC ni nombres).
 """
 import ctypes
 import hashlib
+import os
 import platform
 import re
 import subprocess
 import sys
 import uuid
+from pathlib import Path
 
 _IS_WINDOWS = sys.platform.startswith("win")
+_IS_MACOS = sys.platform.startswith("darwin")
+_IS_LINUX = sys.platform.startswith("linux")
 
 # Valores genéricos/no-válidos que devuelven VMs o placas sin UUID real
 _INVALID_UUIDS = {
@@ -49,6 +53,55 @@ def _normalize_uuid(val: str) -> str:
     if len(v) != 32:
         return ""
     return f"{v[0:8]}-{v[8:12]}-{v[12:16]}-{v[16:20]}-{v[20:32]}"
+
+
+# ── Sensores multiplataforma (macOS / Linux) ───────────────────────
+
+def _macos_hw_uuid() -> str:
+    """UUID de hardware Apple (IOPlatformUUID). Sobrevive a reinstalar macOS."""
+    if not _IS_MACOS:
+        return ""
+    for cmd in [
+        ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+        ["system_profiler", "SPHardwareDataType"],
+    ]:
+        try:
+            r = subprocess.run(cmd, capture_output=True, text=True, timeout=8)
+            m = re.search(r'"?IOPlatformUUID"?\s*=\s*"([^"]+)"', r.stdout)
+            if not m:
+                m = re.search(r"Hardware UUID:\s*(\S+)", r.stdout)
+            if m:
+                val = m.group(1).strip()
+                if val and len(val) >= 16:
+                    return val.upper()
+        except Exception:
+            continue
+    return ""
+
+
+def _linux_hw_uuid() -> str:
+    """UUID de hardware/producto en Linux. Estable por instalación."""
+    if not _IS_LINUX:
+        return ""
+    # 1) product_uuid de DMI (más estable; a veces requiere root)
+    for path in ["/sys/class/dmi/id/product_uuid",
+                 "/etc/machine-id",
+                 "/var/lib/dbus/machine-id"]:
+        try:
+            val = Path(path).read_text().strip()
+            if val and len(val) >= 16:
+                return val.upper()
+        except Exception:
+            continue
+    # 2) dbus-uuidgen como último recurso
+    try:
+        r = subprocess.run(["dbus-uuidgen"], capture_output=True, text=True, timeout=4)
+        val = r.stdout.strip()
+        if val:
+            return val.upper()
+    except Exception:
+        pass
+    return ""
 
 
 def _smbios_uuid() -> str:
@@ -131,8 +184,12 @@ def _mac_address() -> str:
 
 
 def _sensors() -> list[str]:
+    if _IS_MACOS:
+        return _sensors_macos()
+    if _IS_LINUX:
+        return _sensors_linux()
+    # ── Windows: comportamiento IDÉNTICO a v1.0.2 (sin cambios) ──────
     out = []
-    # Ancla primaria: SMBIOS UUID (sobrevive a reinstalar Windows en misma HW)
     sm = _smbios_uuid()
     if sm:
         out.append("S:" + sm)
@@ -145,7 +202,32 @@ def _sensors() -> list[str]:
     mac = _mac_address()
     if mac:
         out.append("M:" + mac)
-    # fallback estable por plataforma (para equipos donde falla todo arriba)
+    out.append("P:" + platform.platform() + "|" + platform.node())
+    return out
+
+
+def _sensors_macos() -> list[str]:
+    """Sensores para macOS: IOPlatformUUID como ancla primaria."""
+    out = []
+    mu = _macos_hw_uuid()
+    if mu:
+        out.append("U:" + mu)
+    mac = _mac_address()
+    if mac:
+        out.append("M:" + mac)
+    out.append("P:" + platform.platform() + "|" + platform.node())
+    return out
+
+
+def _sensors_linux() -> list[str]:
+    """Sensores para Linux: product_uuid / machine-id como ancla primaria."""
+    out = []
+    lu = _linux_hw_uuid()
+    if lu:
+        out.append("U:" + lu)
+    mac = _mac_address()
+    if mac:
+        out.append("M:" + mac)
     out.append("P:" + platform.platform() + "|" + platform.node())
     return out
 

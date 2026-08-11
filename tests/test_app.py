@@ -596,6 +596,71 @@ def test_preview_dialog():
     tree.deleteLater()
 
 
+# ── Tests de huella de PC (machine_id) ─────────────────────────
+def test_machine_id_deterministic():
+    from core.machine import machine_id
+    a = machine_id()
+    b = machine_id()
+    check(a == b, f"machine_id deterministic: {a} == {b}")
+    check(len(a) == 16, f"machine_id len 16, got {len(a)}")
+    import re
+    check(bool(re.fullmatch(r"[0-9a-f]{16}", a)), f"machine_id is 16-hex, got '{a}'")
+
+
+def test_machine_id_legacy_compat():
+    from core.machine import machine_id, machine_id_legacy
+    current = machine_id()
+    legacy = machine_id_legacy()
+    # Legacy debe ser un hash válido distinto (sin sensor SMBIOS)
+    check(len(legacy) == 16, f"machine_id_legacy len 16, got {len(legacy)}")
+    import re
+    check(bool(re.fullmatch(r"[0-9a-f]{16}", legacy)), f"legacy is 16-hex, got '{legacy}'")
+    # _machine_match acepta ambos formatos
+    from core.config import _machine_match
+    check(_machine_match({"machine": current}) is True, "machine_match acepta formato actual")
+    check(_machine_match({"machine": legacy}) is True, "machine_match acepta formato legacy")
+    check(_machine_match({"machine": "0" * 16}) is False, "machine_match rechaza huella ajena")
+    check(_machine_match({}) is True, "machine_match acepta clave sin binding")
+
+
+def test_smbios_sensor_present():
+    from core.machine import _sensors
+    sensors = _sensors()
+    # Debe haber al menos un sensor (siempre hay fallback P:)
+    check(len(sensors) >= 1, f"_sensors devuelve al menos 1, got {len(sensors)}")
+    # El último sensor es siempre el fallback de plataforma
+    check(sensors[-1].startswith("P:"), f"último sensor es fallback P:, got '{sensors[-1]}'")
+
+
+def test_cross_platform_sensor_branching():
+    """_sensors() debe ramificar por plataforma (Windows/macOS/Linux)."""
+    import core.machine as m
+    sensors = m._sensors()
+    if m._IS_WINDOWS:
+        # Windows tiene sensores S: G: V: M: P: (algunos pueden fallar en CI)
+        check(any(s.startswith("P:") for s in sensors),
+              f"Windows: sensor P: presente, got {sensors}")
+    elif m._IS_MACOS:
+        check(any(s.startswith("U:") for s in sensors) or any(s.startswith("P:") for s in sensors),
+              f"macOS: sensor U: o P: presente, got {sensors}")
+        check(sensors[-1].startswith("P:"), f"macOS: último sensor P:, got {sensors[-1]}")
+    elif m._IS_LINUX:
+        check(any(s.startswith("U:") for s in sensors) or any(s.startswith("P:") for s in sensors),
+              f"Linux: sensor U: o P: presente, got {sensors}")
+        check(sensors[-1].startswith("P:"), f"Linux: último sensor P:, got {sensors[-1]}")
+    # En todos los casos, machine_id debe ser válido
+    mid = m.machine_id()
+    check(len(mid) == 16, f"machine_id len 16 en esta plataforma, got {len(mid)}")
+
+
+def test_machine_id_cross_platform_stable():
+    """machine_id debe ser estable en la misma máquina (cualquier plataforma)."""
+    from core.machine import machine_id
+    a = machine_id()
+    b = machine_id()
+    check(a == b, f"machine_id estable: {a} == {b}")
+
+
 # ═══════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════
@@ -612,6 +677,11 @@ if __name__ == "__main__":
         ("persistencia preset", test_preset_persistence),
         ("scan_level", test_scan_level),
         ("scan_full", test_scan_full),
+        ("machine_id_deterministic", test_machine_id_deterministic),
+        ("machine_id_legacy_compat", test_machine_id_legacy_compat),
+        ("smbios_sensor_present", test_smbios_sensor_present),
+        ("cross_platform_sensor_branching", test_cross_platform_sensor_branching),
+        ("machine_id_cross_platform_stable", test_machine_id_cross_platform_stable),
     ]
 
     gui_tests = [

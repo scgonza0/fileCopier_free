@@ -108,7 +108,28 @@ SIZES = [16, 32, 48, 64, 128, 256]
 frames = [make_frame(s) for s in SIZES]
 write_ico(OUT, frames)
 
-# Verificar
+# --- Exportar PNG (Linux) -------------------------------------------
+png_out = HERE / "assets" / "filecopier_256.png"
+frames[-1].save(png_out, format="PNG")
+print(f"PNG (Linux): {png_out}  ({png_out.stat().st_size/1024:.1f} KB)")
+
+# --- Exportar ICNS (macOS) via PNGs + iconutil ----------------------
+icns_dir = HERE / "assets" / "filecopier.iconset"
+icns_dir.mkdir(exist_ok=True)
+# macOS iconset necesita pares 1x y 2x para cada tamaño
+iconset_sizes = [16, 32, 64, 128, 256, 512]
+for s in iconset_sizes:
+    f = make_frame(s)
+    f.save(icns_dir / f"icon_{s}x{s}.png", format="PNG")
+    # versión @2x (hasta 512 → 1024)
+    if s <= 256:
+        f2 = make_frame(s * 2)
+        f2.save(icns_dir / f"icon_{s}x{s}@2x.png", format="PNG")
+icns_out = HERE / "assets" / "filecopier.icns"
+print(f"iconset macOS: {icns_dir}  ({len(list(icns_dir.glob('*.png')))} PNGs)")
+print(f"(para generar .icns ejecutar: iconutil -c icns {icns_dir})")
+
+# Verificar .ico
 im = Image.open(OUT)
 sizes = []
 try:
